@@ -1,0 +1,76 @@
+---
+title: "Peer graded assignment"
+output: html_notebook
+---
+
+##Background
+####Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+##Requirement
+####The goal of your project is to predict the manner in which they did the exercise. This is the "classe" variable in the training set. You may use any of the other variables to predict with. You should create a report describing how you built your model, how you used cross validation, what you think the expected out of sample error is, and why you made the choices you did. You will also use your prediction model to predict 20 different test cases.
+
+##Packages and seed
+```{r}
+
+library(caret)        # modelling  
+library(corrplot)     # visualization
+
+set.seed(100)
+```
+
+
+
+####Read in the data
+```{r}
+training <- read.csv("./data/pml-training.csv",na.strings=c('#DIV/0!', '', 'NA') ,stringsAsFactors = F)  # reading the training data -and- replacing #DIV/0 by NA
+testing <-  read.csv("./data/pml-testing.csv", na.strings=c('#DIV/0!', '', 'NA'), stringsAsFactors=F)  # reading the testing data -and- replacing #DIV/0 by NA
+```
+
+####Investigating NAs - finding the right percentage
+```{r}
+sum(sapply(training, function(x) sum(is.na(x))/length(x))>0.9)
+```
+####Exclude 100 variables with more than 90% NAs as well as the first few
+```{r}
+training <- training[,!sapply(training, function(x) sum(is.na(x))/length(x))>0.9]
+testing <- testing[,!sapply(testing, function(x) sum(is.na(x))/length(x))>0.9]
+
+training <- training[,-(1:6)]
+testing  <- testing [,-(1:6)]
+```
+
+#####Test for highly correlated variables
+```{r}
+corrMatrix <- cor(training[,1:52]) # correlation matrix 
+corrplot(corrMatrix,  type = "upper", tl.pos = "td",method = "circle", tl.cex = 0.5, tl.col = 'black',order = "hclust", diag = FALSE) # plot of correlation mat
+```
+
+####Columns with 75% or more correlation - to be removed
+```{r}
+highcorrcolms <- findCorrelation(corrMatrix, cutoff=0.75) # columns to remove
+length(highcorrcolms) # number of columns which should be removed
+training <- training[,-highcorrcolms] #removing correlated variables
+testing  <- testing[,-highcorrcolms]  #removing correlated variables
+```
+
+####Modelling
+#####Random forest
+```{r}
+train_control <- trainControl(method="cv", number=2)
+fit_rf<- train(classe~., data=training,trControl=train_control,  method="rf")
+fit_rf
+```
+
+#####Decision tree
+```{r}
+fit_rpart<- train(classe~., data=training, trControl=train_control, method = "rpart")
+fit_rpart
+```
+
+#####Using the RF model since the accuracy is better
+####My final predictions
+```{r}
+pred_rf <- predict(fit_rf,testing)
+pred_rf
+```
+
